@@ -28,3 +28,6 @@ Thumbs.db
 
 # NOTE: ml/artifacts/*.joblib is intentionally NOT ignored —
 # the trained model must be included in the submission.
+
+# Kept out of the public repo, but still present locally for the submission.
+CONTRIBUTIONS.md
