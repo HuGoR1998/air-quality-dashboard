@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AirWatch{% endblock %}
+{% block page_title %}Air Quality Command Center{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <ul class="nav nav-pills city-tabs" id="cityTabs"></ul>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge text-bg-secondary d-inline-flex align-items-center gap-2 py-2" id="statChip" title="Live totals stored in PostgreSQL (auto-updating)">
+            <span><i class="fas fa-database me-1"></i><span id="statReadings">—</span> readings</span>
+            <span class="opacity-50">|</span>
+            <span><i class="fas fa-brain me-1"></i><span id="statPreds">—</span> predictions</span>
+            <span class="opacity-50">|</span>
+            <span title="Most recent reading stored in the database"><i class="fas fa-clock me-1"></i>last fetch <span id="lastFetch">—</span></span>
+        </span>
+        <span class="small muted d-none d-sm-inline">Range</span>
+        <div class="btn-group btn-group-sm" id="rangeBtns">
+            <button class="btn btn-outline-secondary active" data-range="24h">24h</button>
+            <button class="btn btn-outline-secondary" data-range="7d">7d</button>
+            <button class="btn btn-outline-secondary" data-range="30d">30d</button>
+        </div>
+        <span class="small muted d-none d-md-inline">updated <span id="updated">—</span></span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refresh()" title="Refresh"><i class="fas fa-rotate"></i></button>
+    </div>
+</div>
+
+<div id="alertBanner"></div>
+
+<!-- Row 1: gauge · map · advisory -->
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100 aqi-accent aqi-unknown" id="gaugeCard"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="card-title">Current AQI</h6><span id="gaugeCity" class="small muted"></span>
+            </div>
+            <div class="position-relative mx-auto" style="height:150px">
+                <canvas id="gauge"></canvas>
+                <div class="position-absolute top-50 start-50 translate-middle text-center" style="margin-top:14px">
+                    <div class="gauge-value" id="gaugeVal">—</div>
+                    <div id="gaugeCat" class="small fw-semibold"></div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-6"><div class="metric"><div class="v" id="mTemp">—</div><div class="l">Temp °C</div></div></div>
+                <div class="col-6"><div class="metric"><div class="v" id="mMain">—</div><div class="l">Main pollutant</div></div></div>
+            </div>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h6 class="card-title mb-2">Monitored cities</h6>
+            <div id="map"></div>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h6 class="card-title">Health advisory</h6>
+            <div class="my-2"><span class="aqi-badge" id="advBadge">—</span></div>
+            <p id="advMsg" class="small mb-3">—</p>
+            <div class="small muted">Who's at risk</div>
+            <div id="advRisk" class="fw-semibold small">—</div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Row 2: pollutants · climate -->
+<div class="row g-3 mt-1">
+    <div class="col-lg-7">
+        <div class="card h-100"><div class="card-body">
+            <h6 class="card-title mb-2">Pollutant breakdown <span class="muted small">(μg/m³ · Open-Meteo)</span></h6>
+            <div class="chart-box-sm"><canvas id="pollChart"></canvas></div>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100"><div class="card-body">
+            <h6 class="card-title mb-2">Climate</h6>
+            <div class="row g-2">
+                <div class="col-4"><div class="metric"><div class="v" id="cHum">—</div><div class="l">Humidity</div></div></div>
+                <div class="col-4"><div class="metric"><div class="v" id="cPres">—</div><div class="l">Pressure hPa</div></div></div>
+                <div class="col-4"><div class="metric"><div class="v" id="cUV">—</div><div class="l">UV index</div></div></div>
+                <div class="col-4"><div class="metric"><div class="v" id="cCloud">—</div><div class="l">Cloud</div></div></div>
+                <div class="col-4"><div class="metric"><div class="v" id="cPrecip">—</div><div class="l">Precip mm</div></div></div>
+                <div class="col-4"><div class="metric">
+                    <svg viewBox="0 0 100 100" width="40" height="40" class="mb-1">
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--bs-border-color)" stroke-width="4"/>
+                        <g id="needle" class="compass-needle">
+                            <polygon points="50,10 44,52 56,52" fill="var(--brand)"/>
+                            <polygon points="50,90 44,52 56,52" fill="var(--bs-secondary-color)"/>
+                        </g>
+                    </svg>
+                    <div class="l" id="cWind">— m/s</div>
+                </div></div>
+            </div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Row 3: trend + forecast -->
+<div class="row g-3 mt-1">
+    <div class="col-12"><div class="card"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <h6 class="card-title mb-2">AQI trend &amp; forecast</h6>
+            <span class="small muted">history · <span style="color:#f59e0b">Open-Meteo forecast</span> · <span style="color:#ef4444">our ML +24h</span></span>
+        </div>
+        <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div></div></div>
+</div>
+
+{{ cities|json_script:"cities-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CITIES = JSON.parse(document.getElementById("cities-data").textContent);
+let ACTIVE = CITIES.length ? CITIES[0].city : null;
+let RANGE = "24h";
+const store = {};
+let gauge, pollChart, trendChart, map;
+const markers = {};
+
+function aqiHex(a) {
+    if (a == null) return "#94a3b8";
+    if (a <= 50) return "#22c55e";
+    if (a <= 100) return "#eab308";
+    if (a <= 150) return "#f97316";
+    if (a <= 200) return "#ef4444";
+    if (a <= 300) return "#a855f7";
+    return "#7f1d1d";
+}
+function aqiCls(a) {
+    if (a == null) return "aqi-unknown";
+    if (a <= 50) return "aqi-good";
+    if (a <= 100) return "aqi-moderate";
+    if (a <= 150) return "aqi-usg";
+    if (a <= 200) return "aqi-unhealthy";
+    if (a <= 300) return "aqi-vunhealthy";
+    return "aqi-hazardous";
+}
+function setText(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+async function getJson(u) { const r = await fetch(u); return r.json(); }
+
+function timeAgo(iso) {
+    if (!iso) return "—";
+    const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+    if (secs < 60) return secs + "s ago";
+    const mins = Math.round(secs / 60);
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.round(hrs / 24) + "d ago";
+}
+
+let lastFetchIso = null;
+async function pollStats() {
+    try {
+        const s = await getJson("/api/stats/");
+        setText("statReadings", s.readings);
+        setText("statPreds", s.predictions);
+        lastFetchIso = s.last_fetch;
+        setText("lastFetch", timeAgo(lastFetchIso));
+    } catch (e) { /* ignore transient errors */ }
+}
+// tick the "last fetch" label every second so it counts up between polls
+setInterval(() => { if (lastFetchIso) setText("lastFetch", timeAgo(lastFetchIso)); }, 1000);
+
+function applyChartTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    Chart.defaults.color = cs.getPropertyValue("--bs-body-color").trim() || "#333";
+    Chart.defaults.borderColor = cs.getPropertyValue("--bs-border-color").trim() || "#ddd";
+}
+
+function buildTabs() {
+    const ul = document.getElementById("cityTabs");
+    ul.innerHTML = "";
+    CITIES.forEach(c => {
+        const li = document.createElement("li");
+        li.className = "nav-item";
+        const b = document.createElement("button");
+        b.className = "nav-link city-tab" + (c.city === ACTIVE ? " active" : "");
+        b.textContent = c.city;
+        b.onclick = () => { ACTIVE = c.city; buildTabs(); renderActive(); };
+        li.appendChild(b);
+        ul.appendChild(li);
+    });
+}
+
+async function loadAll() {
+    await Promise.all(CITIES.map(async c => {
+        store[c.city] = await getJson(`/api/insights/?city=${encodeURIComponent(c.city)}&range=${RANGE}`);
+    }));
+    setText("updated", new Date().toLocaleTimeString());
+    renderMap();
+    renderActive();
+}
+
+function renderActive() {
+    const d = store[ACTIVE];
+    if (!d) return;
+    applyChartTheme();
+    renderGauge(d); renderAdvisory(d); renderAlert(d);
+    renderPollutants(d); renderClimate(d); renderTrend(d);
+}
+
+function renderGauge(d) {
+    const a = d.current.aqi_us, hex = aqiHex(a);
+    setText("gaugeVal", a == null ? "—" : a);
+    setText("gaugeCity", ACTIVE);
+    const cat = document.getElementById("gaugeCat");
+    cat.textContent = d.current.category || ""; cat.style.color = hex;
+    document.getElementById("gaugeCard").className = "card h-100 aqi-accent " + aqiCls(a);
+    setText("mTemp", d.current.temperature_c ?? "—");
+    setText("mMain", (d.current.main_pollutant || "—").toUpperCase());
+    const val = Math.min(a || 0, 300), rest = 300 - val;
+    const data = {datasets: [{data: [val, rest], backgroundColor: [hex, "rgba(148,163,184,.2)"], borderWidth: 0}]};
+    if (!gauge) {
+        gauge = new Chart(document.getElementById("gauge"), {
+            type: "doughnut", data,
+            options: {rotation: -90, circumference: 180, cutout: "72%", responsive: true,
+                      maintainAspectRatio: false, plugins: {legend: {display: false}, tooltip: {enabled: false}}},
+        });
+    } else { gauge.data = data; gauge.update(); }
+}
+
+function renderAdvisory(d) {
+    const b = document.getElementById("advBadge");
+    b.textContent = d.advisory.category; b.style.background = aqiHex(d.current.aqi_us);
+    setText("advMsg", d.advisory.message);
+    setText("advRisk", d.advisory.at_risk);
+}
+
+function renderAlert(d) {
+    const a = d.current.aqi_us, el = document.getElementById("alertBanner");
+    if (a != null && a > 150) {
+        el.innerHTML = `<div class="alert alert-danger d-flex align-items-center gap-2">
+            <i class="fas fa-triangle-exclamation fa-lg"></i>
+            <div><strong>${ACTIVE}: ${d.current.category}</strong> — AQI ${a}. ${d.advisory.at_risk} should limit outdoor exposure.</div></div>`;
+    } else { el.innerHTML = ""; }
+}
+
+function renderPollutants(d) {
+    const p = d.pollutants;
+    const data = {
+        labels: ["PM2.5", "PM10", "O₃", "NO₂", "SO₂", "CO"],
+        datasets: [{data: [p.pm2_5, p.pm10, p.ozone, p.nitrogen_dioxide, p.sulphur_dioxide, p.carbon_monoxide],
+                    backgroundColor: "#0ea5e9", borderRadius: 6}],
+    };
+    if (!pollChart) {
+        pollChart = new Chart(document.getElementById("pollChart"), {
+            type: "bar", data,
+            options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}},
+                      scales: {y: {beginAtZero: true}}},
+        });
+    } else { pollChart.data = data; pollChart.update(); }
+}
+
+function renderClimate(d) {
+    const c = d.climate, p = d.pollutants;
+    setText("cHum", (c.humidity ?? "—") + "%");
+    setText("cPres", c.pressure_hpa ?? "—");
+    setText("cUV", p.uv_index ?? c.uv_index ?? "—");
+    setText("cCloud", (c.cloud_cover ?? "—") + "%");
+    setText("cPrecip", c.precipitation ?? "—");
+    setText("cWind", (c.wind_speed_ms ?? "—") + " m/s");
+    const n = document.getElementById("needle");
+    if (n && c.wind_direction != null) n.style.transform = `rotate(${c.wind_direction}deg)`;
+}
+
+function renderTrend(d) {
+    const hist = d.history || [], fc = d.forecast || [];
+    const times = hist.map(x => x.time).concat(fc.map(x => x.time));
+    const histData = hist.map(x => x.us_aqi).concat(fc.map(() => null));
+    const fcData = hist.map(() => null);
+    if (hist.length) fcData[hist.length - 1] = hist[hist.length - 1].us_aqi;
+    fc.forEach(x => fcData.push(x.us_aqi));
+    const mlData = times.map(() => null);
+    const ml = d.prediction.next_24h;
+    if (ml != null && hist.length) {
+        const idx = Math.min(times.length - 1, hist.length - 1 + 24);
+        mlData[idx] = Math.round(ml);
+    }
+    const fmt = t => {
+        const dt = new Date(t + "Z");
+        return RANGE === "24h" ? dt.toLocaleTimeString([], {hour: "2-digit"})
+                               : dt.toLocaleDateString([], {month: "short", day: "numeric"});
+    };
+    const data = {
+        labels: times.map(fmt),
+        datasets: [
+            {label: "History", data: histData, borderColor: "#0d9488", backgroundColor: "transparent", pointRadius: 0, tension: .3},
+            {label: "Open-Meteo forecast", data: fcData, borderColor: "#f59e0b", borderDash: [6, 4], backgroundColor: "transparent", pointRadius: 0, tension: .3},
+            {label: "Our ML +24h", data: mlData, borderColor: "#ef4444", backgroundColor: "#ef4444", pointRadius: 7, pointStyle: "rectRot", showLine: false},
+        ],
+    };
+    if (!trendChart) {
+        trendChart = new Chart(document.getElementById("trendChart"), {
+            type: "line", data,
+            options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {position: "top"}},
+                      scales: {y: {title: {display: true, text: "US AQI"}}, x: {ticks: {maxTicksLimit: 12}}}},
+        });
+    } else { trendChart.data = data; trendChart.update(); }
+}
+
+function renderMap() {
+    if (!map) {
+        map = L.map("map", {zoomControl: true});
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {maxZoom: 19, attribution: "© OpenStreetMap"}).addTo(map);
+    }
+    const pts = [];
+    CITIES.forEach(c => {
+        const d = store[c.city], a = d ? d.current.aqi_us : null;
+        if (markers[c.city]) map.removeLayer(markers[c.city]);
+        const m = L.circleMarker([c.lat, c.lon],
+            {radius: 12, color: "#fff", weight: 2, fillColor: aqiHex(a), fillOpacity: .9}).addTo(map);
+        m.bindPopup(`<strong>${c.city}</strong><br>AQI ${a ?? "—"} · ${d ? d.current.category : ""}`);
+        m.on("click", () => { ACTIVE = c.city; buildTabs(); renderActive(); });
+        markers[c.city] = m;
+        pts.push([c.lat, c.lon]);
+    });
+    if (pts.length) map.fitBounds(pts, {padding: [40, 40], maxZoom: 6});
+    setTimeout(() => map.invalidateSize(), 200);
+}
+
+function refresh() { loadAll(); pollStats(); }
+function setRange(r) {
+    RANGE = r;
+    document.querySelectorAll("#rangeBtns button").forEach(b => b.classList.toggle("active", b.dataset.range === r));
+    loadAll();
+}
+document.querySelectorAll("#rangeBtns button").forEach(b => b.onclick = () => setRange(b.dataset.range));
+document.addEventListener("themechange", () => { if (store[ACTIVE]) renderActive(); });
+
+buildTabs();
+loadAll();
+pollStats();
+setInterval(loadAll, 60000);
+setInterval(pollStats, 15000);  // live PostgreSQL counter
+</script>
+{% endblock %}

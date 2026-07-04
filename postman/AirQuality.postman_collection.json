@@ -1,0 +1,68 @@
+{
+  "info": {
+    "name": "Air Quality Dashboard API",
+    "description": "DRF endpoints for the Real-Time Environmental Health Monitoring & Air Quality Prediction Dashboard (AUCA final project).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" }
+  ],
+  "item": [
+    {
+      "name": "List readings (current + historical)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/readings/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "readings", ""]
+        },
+        "description": "Returns paginated air-quality readings, newest first."
+      }
+    },
+    {
+      "name": "List readings by city",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/readings/?city=Kigali",
+          "host": ["{{base_url}}"],
+          "path": ["api", "readings", ""],
+          "query": [{ "key": "city", "value": "Kigali" }]
+        }
+      }
+    },
+    {
+      "name": "List predictions",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/predictions/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "predictions", ""]
+        },
+        "description": "Returns the logged ML predictions (both +1h and +24h horizons)."
+      }
+    },
+    {
+      "name": "Create prediction (feed current data)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"city\": \"Kigali\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/predict/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "predict", ""]
+        },
+        "description": "Feeds the latest reading for the given city (or reading_id) into the model and returns a fresh prediction per horizon. Omit the body to use the most recent reading overall."
+      }
+    }
+  ]
+}

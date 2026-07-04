@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in — AirWatch</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap5/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <script>
+        (function () { document.documentElement.setAttribute("data-bs-theme", localStorage.getItem("theme") || "light"); })();
+    </script>
+    <style>
+        .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 1rem;
+            background: radial-gradient(1200px 500px at 50% -10%, rgba(13,148,136,.18), transparent 60%); }
+        .auth-card { width: 100%; max-width: 400px; }
+    </style>
+</head>
+<body>
+<div class="auth-wrap">
+    <div class="card auth-card p-4">
+        <div class="text-center mb-3">
+            <div class="brand fs-3"><i class="fas fa-wind"></i> AirWatch <span class="fw-normal muted">RW</span></div>
+            <div class="muted small">Real-Time Air Quality &amp; Prediction Dashboard</div>
+        </div>
+
+        {% if form.errors %}
+        <div class="alert alert-danger py-2"><i class="fas fa-circle-exclamation me-1"></i>Invalid username or password.</div>
+        {% endif %}
+
+        <form method="post" action="{% url 'reports:login' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label small">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                    <input type="text" name="username" class="form-control" required autofocus>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-right-to-bracket me-1"></i>Sign In</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

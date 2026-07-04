@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Live Readings{% endblock %}
+{% block page_title %}Live Air-Quality Readings{% endblock %}
+
+{% block content %}
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-success py-2">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<div class="card"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h6 class="card-title"><i class="fas fa-satellite-dish me-1"></i>Readings from IQAir AirVisual</h6>
+        <div class="d-flex gap-2">
+            <form method="get" class="d-flex align-items-center gap-2">
+                <select name="city" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:140px">
+                    <option value="">All cities</option>
+                    {% for c in cities %}
+                    <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <form method="post" action="{% url 'data_api:fetch_now' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-rotate me-1"></i>Fetch now</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr>
+                <th>City</th><th>US AQI</th><th>Category</th><th>Main</th>
+                <th>Temp °C</th><th>Humidity</th><th>Wind m/s</th>
+                <th>Reading (UTC)</th><th>Fetched (UTC)</th>
+            </tr></thead>
+            <tbody>
+                {% for r in page %}
+                <tr>
+                    <td class="fw-semibold">{{ r.city }}</td>
+                    <td>{{ r.aqi_us }}</td>
+                    <td>{{ r.category }}</td>
+                    <td>{{ r.main_pollutant_us }}</td>
+                    <td>{{ r.temperature_c }}</td>
+                    <td>{{ r.humidity }}%</td>
+                    <td>{{ r.wind_speed_ms }}</td>
+                    <td class="muted">{{ r.source_ts|date:"Y-m-d H:i" }}</td>
+                    <td class="muted">{{ r.fetched_at|date:"Y-m-d H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="text-center muted py-4">No readings yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.has_other_pages %}
+    <nav><ul class="pagination pagination-sm mb-0">
+        {% if page.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}{% if selected_city %}&city={{ selected_city }}{% endif %}">Prev</a></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Page {{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+        {% if page.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}{% if selected_city %}&city={{ selected_city }}{% endif %}">Next</a></li>
+        {% endif %}
+    </ul></nav>
+    {% endif %}
+</div></div>
+{% endblock %}

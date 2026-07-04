@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports &amp; Export{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-1">
+    <div class="col-md-3 col-6"><div class="card"><div class="card-body">
+        <div class="muted small"><i class="fas fa-database me-1"></i>Readings</div>
+        <div class="kpi">{{ total_readings }}</div>
+    </div></div></div>
+    <div class="col-md-3 col-6"><div class="card"><div class="card-body">
+        <div class="muted small"><i class="fas fa-brain me-1"></i>Predictions</div>
+        <div class="kpi">{{ total_predictions }}</div>
+    </div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-body">
+        <div class="muted small"><i class="fas fa-clock me-1"></i>Data window (UTC)</div>
+        <div class="fw-semibold mt-1">{{ first_reading.fetched_at|date:"Y-m-d H:i" }} &rarr; {{ last_reading.fetched_at|date:"Y-m-d H:i" }}</div>
+    </div></div></div>
+</div>
+
+<div class="card mt-3"><div class="card-body">
+    <h6 class="card-title mb-2"><i class="fas fa-file-csv me-1"></i>CSV Export</h6>
+    <p class="muted small">Download the logged data for offline analysis or the report.</p>
+    <a href="{% url 'reports:export_predictions' %}" class="btn btn-success"><i class="fas fa-download me-1"></i>Predictions log (.csv)</a>
+    <a href="{% url 'reports:export_readings' %}" class="btn btn-outline-secondary"><i class="fas fa-download me-1"></i>Readings log (.csv)</a>
+</div></div>
+
+<div class="card mt-3"><div class="card-body">
+    <h6 class="card-title mb-2"><i class="fas fa-clock-rotate-left me-1"></i>Recent predictions</h6>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>City</th><th>Horizon</th><th>AQI</th><th>Category</th><th>At (UTC)</th></tr></thead>
+            <tbody>
+                {% for p in recent_predictions %}
+                <tr>
+                    <td class="fw-semibold">{{ p.city }}</td>
+                    <td><span class="badge text-bg-secondary">+{{ p.horizon_hours }}h</span></td>
+                    <td>{{ p.predicted_aqi_us|floatformat:1 }}</td>
+                    <td>{{ p.predicted_category }}</td>
+                    <td class="muted">{{ p.created_at|date:"Y-m-d H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center muted py-4">No predictions yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div></div>
+{% endblock %}

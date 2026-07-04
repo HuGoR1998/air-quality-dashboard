@@ -1,0 +1,73 @@
+/* AirWatch — custom theme on top of Bootstrap 5 (native light/dark). */
+
+:root {
+    --brand: #0d9488;
+    --brand-2: #0ea5e9;
+    --radius: 0.9rem;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .06);
+}
+[data-bs-theme="dark"] {
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px rgba(0, 0, 0, .38);
+}
+
+body { min-height: 100vh; }
+
+/* ---- AQI colour system ---- */
+.aqi-good        { --aqi: #22c55e; }
+.aqi-moderate    { --aqi: #eab308; }
+.aqi-usg         { --aqi: #f97316; }
+.aqi-unhealthy   { --aqi: #ef4444; }
+.aqi-vunhealthy  { --aqi: #a855f7; }
+.aqi-hazardous   { --aqi: #7f1d1d; }
+.aqi-unknown     { --aqi: #94a3b8; }
+
+.aqi-badge {
+    background: var(--aqi); color: #fff; padding: .2rem .65rem;
+    border-radius: 999px; font-weight: 600; font-size: .78rem; white-space: nowrap;
+}
+.aqi-text  { color: var(--aqi); }
+.aqi-accent { border-top: .35rem solid var(--aqi) !important; }
+
+/* ---- Layout ---- */
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar {
+    width: 244px; flex-shrink: 0;
+    background: var(--bs-tertiary-bg);
+    border-right: 1px solid var(--bs-border-color);
+}
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.brand { font-weight: 800; letter-spacing: .2px; color: var(--bs-body-color); }
+.brand i { color: var(--brand); }
+
+.nav-side .nav-link {
+    color: var(--bs-body-color); border-radius: .55rem; margin: .12rem .4rem;
+    padding: .58rem .8rem; display: flex; gap: .7rem; align-items: center; font-weight: 500;
+}
+.nav-side .nav-link:hover { background: var(--bs-secondary-bg); }
+.nav-side .nav-link.active { background: var(--brand); color: #fff; }
+.nav-side .nav-link i { width: 1.1rem; text-align: center; }
+
+/* ---- Cards & bits ---- */
+.card { border: 1px solid var(--bs-border-color); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-title { font-weight: 600; font-size: .95rem; margin: 0; }
+.kpi { font-size: 1.9rem; font-weight: 700; line-height: 1; }
+.muted { color: var(--bs-secondary-color); }
+
+.gauge-value { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+.metric {
+    background: var(--bs-secondary-bg); border-radius: .7rem; padding: .55rem .7rem; text-align: center;
+}
+.metric .v { font-weight: 700; font-size: 1.05rem; }
+.metric .l { font-size: .72rem; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: .3px; }
+
+#map { height: 300px; border-radius: var(--radius); z-index: 0; }
+
+.compass-needle { transition: transform .4s ease; transform-origin: 50% 50%; }
+
+.city-tab { font-weight: 600; }
+.chart-box { position: relative; height: 300px; }
+.chart-box-sm { position: relative; height: 220px; }
+
+.table thead th { font-size: .78rem; text-transform: uppercase; letter-spacing: .3px; color: var(--bs-secondary-color); }
+footer.app-footer { color: var(--bs-secondary-color); }

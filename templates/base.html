@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AirWatch — Air Quality{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap5/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <script>
+        // Apply saved theme before paint to avoid a flash.
+        (function () {
+            var t = localStorage.getItem("theme") || "light";
+            document.documentElement.setAttribute("data-bs-theme", t);
+        })();
+    </script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar (static on lg+, offcanvas on small screens) -->
+    <nav class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar">
+        <div class="offcanvas-header d-lg-none border-bottom">
+            <span class="brand fs-5"><i class="fas fa-wind"></i> AirWatch</span>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebar"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column p-2">
+            <a href="{% url 'dashboard:home' %}" class="brand fs-5 text-decoration-none px-2 py-2 d-none d-lg-flex align-items-center gap-2">
+                <i class="fas fa-wind"></i> AirWatch <span class="fw-normal muted">RW</span>
+            </a>
+            <ul class="nav nav-side flex-column mt-2">
+                <li><a class="nav-link {% if active == 'home' %}active{% endif %}" href="{% url 'dashboard:home' %}"><i class="fas fa-gauge-high"></i> Dashboard</a></li>
+                <li><a class="nav-link {% if active == 'readings' %}active{% endif %}" href="{% url 'data_api:readings' %}"><i class="fas fa-satellite-dish"></i> Live Readings</a></li>
+                <li><a class="nav-link {% if active == 'predictions' %}active{% endif %}" href="{% url 'predictor:predictions' %}"><i class="fas fa-brain"></i> Predictions</a></li>
+                <li><a class="nav-link {% if active == 'reports' %}active{% endif %}" href="{% url 'reports:reports' %}"><i class="fas fa-file-csv"></i> Reports</a></li>
+                <li><hr class="my-2"></li>
+                <li><a class="nav-link" href="/api/" target="_blank"><i class="fas fa-code"></i> REST API</a></li>
+                <li><a class="nav-link" href="/admin/" target="_blank"><i class="fas fa-user-shield"></i> Admin</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <div class="content">
+        <nav class="navbar bg-body border-bottom sticky-top px-3 py-2">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebar"><i class="fas fa-bars"></i></button>
+                <span class="fw-semibold">{% block page_title %}Dashboard{% endblock %}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" onclick="toggleTheme()" title="Toggle light/dark"><i id="theme-icon" class="fas fa-moon"></i></button>
+                {% if user.is_authenticated %}
+                <span class="small muted d-none d-sm-inline"><i class="fas fa-user"></i> {{ user.username }}</span>
+                <form method="post" action="{% url 'reports:logout' %}" class="d-inline m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Log out"><i class="fas fa-right-from-bracket"></i></button>
+                </form>
+                {% endif %}
+            </div>
+        </nav>
+
+        <main class="p-3 p-md-4 flex-fill">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="app-footer text-center small py-3 border-top">
+            AirWatch &middot; Data: IQAir + Open-Meteo &middot; ML: Random Forest
+        </footer>
+    </div>
+</div>
+
+<script src="{% static 'vendor/bootstrap5/js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+    function updateThemeIcon() {
+        var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+        var i = document.getElementById("theme-icon");
+        if (i) i.className = dark ? "fas fa-sun" : "fas fa-moon";
+    }
+    function toggleTheme() {
+        var h = document.documentElement;
+        var next = h.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+        h.setAttribute("data-bs-theme", next);
+        localStorage.setItem("theme", next);
+        updateThemeIcon();
+        document.dispatchEvent(new CustomEvent("themechange", {detail: next}));
+    }
+    document.addEventListener("DOMContentLoaded", updateThemeIcon);
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>
