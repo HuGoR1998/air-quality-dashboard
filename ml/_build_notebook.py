@@ -108,6 +108,10 @@ data.head()'''
 
 MD_FEATURES = r'''## 2. Feature engineering
 
+We add a **`city_id`** feature (city-specific behaviour) and **lag/trend features**
+(`aqi_lag_1/3/6/24`, a 6-hour rolling mean, and a 3-hour slope) so the model can see
+the recent **trajectory** — whether AQI is rising or falling — instead of only the
+current value. This is the fix for the model over-predicting a city that is mid-decline.
 Two forecast targets are created by shifting AQI within each city:
 `target_aqi_1h` (shift -1) and `target_aqi_24h` (shift -24).
 Categories follow the US EPA AQI bands.'''
@@ -116,11 +120,24 @@ C_FEATURES = r'''data = data.sort_values(["city", "time"]).reset_index(drop=True
 data["hour"] = data["time"].dt.hour
 data["month"] = data["time"].dt.month
 
+# City as a feature so the model can learn city-specific behaviour.
+# NOTE: this mapping MUST match predictor/services.py CITY_ID.
+CITY_ID = {"Kigali": 0, "Delhi": 1}
+data["city_id"] = data["city"].map(CITY_ID)
+
+# Lag / trend features (per city) so the model sees the recent trajectory,
+# not just the current value — this is what lets it capture rising/falling AQI.
+for lag in [1, 3, 6, 24]:
+    data[f"aqi_lag_{lag}"] = data.groupby("city")["aqi_us"].shift(lag)
+data["aqi_roll6"] = data.groupby("city")["aqi_us"].transform(lambda x: x.shift(1).rolling(6).mean())
+data["aqi_trend3"] = data["aqi_us"] - data["aqi_lag_3"]
+
 # Two forecast horizons
 data["target_aqi_1h"] = data.groupby("city")["aqi_us"].shift(-1)
 data["target_aqi_24h"] = data.groupby("city")["aqi_us"].shift(-24)
 
-FEATURES = ["aqi_us", "temperature_c", "humidity", "pressure_hpa", "wind_speed_ms", "hour", "month"]
+FEATURES = ["aqi_us", "temperature_c", "humidity", "pressure_hpa", "wind_speed_ms", "hour", "month", "city_id",
+            "aqi_lag_1", "aqi_lag_3", "aqi_lag_6", "aqi_lag_24", "aqi_roll6", "aqi_trend3"]
 
 
 def aqi_category(aqi):

@@ -24,7 +24,11 @@ logger = logging.getLogger(__name__)
 ARTIFACT_DIR = settings.BASE_DIR / "ml" / "artifacts"
 HORIZONS = [1, 24]
 
+# City -> id. MUST match the CITY_ID mapping in ml/_build_notebook.py.
+CITY_ID = {"Kigali": 0, "Delhi": 1}
+
 # Shared feature contract between training (notebook) and inference (here).
+# Order must match the notebook's FEATURES list exactly.
 FEATURE_COLUMNS = [
     "aqi_us",
     "temperature_c",
@@ -33,6 +37,13 @@ FEATURE_COLUMNS = [
     "wind_speed_ms",
     "hour",
     "month",
+    "city_id",
+    "aqi_lag_1",
+    "aqi_lag_3",
+    "aqi_lag_6",
+    "aqi_lag_24",
+    "aqi_roll6",
+    "aqi_trend3",
 ]
 
 _models = {}  # horizon -> (regressor, classifier)
@@ -72,9 +83,18 @@ def models_available():
 
 
 def build_features(reading):
-    """Turn an AirQualityReading into the feature dict the models expect."""
+    """Build the feature dict the models expect: base + city + lag/trend features.
+
+    The lag/trend features come from Open-Meteo's recent hourly AQI series for the
+    city — the same source the model was trained on, and it has full history on
+    demand (no cold-start). If Open-Meteo is unavailable we fall back to persistence
+    (lags = current value) so predictions never crash.
+    """
     ts = reading.source_ts
-    return {
+    city = reading.city
+    current = reading.aqi_us or 0
+
+    feats = {
         "aqi_us": reading.aqi_us,
         "temperature_c": reading.temperature_c,
         "humidity": reading.humidity,
@@ -82,7 +102,41 @@ def build_features(reading):
         "wind_speed_ms": reading.wind_speed_ms,
         "hour": ts.hour if ts else 0,
         "month": ts.month if ts else 0,
+        "city_id": CITY_ID.get(city, -1),
+        # fallback = persistence (no trend) until real history is available
+        "aqi_lag_1": current, "aqi_lag_3": current, "aqi_lag_6": current,
+        "aqi_lag_24": current, "aqi_roll6": current, "aqi_trend3": 0,
     }
+
+    lat, lon = settings.CITY_COORDS.get(city, (None, None))
+    if lat is None:
+        return feats
+
+    try:
+        from dashboard.insights import get_enrichment
+        enr = get_enrichment(city, lat, lon, "7d")
+        hist = [p["us_aqi"] for p in enr.get("history", []) if p.get("us_aqi") is not None]
+        clim = enr.get("climate", {})
+        if len(hist) >= 25:
+            cur = hist[-1]
+            feats.update({
+                "aqi_us": cur,                        # Open-Meteo current (matches training)
+                "aqi_lag_1": hist[-2],
+                "aqi_lag_3": hist[-4],
+                "aqi_lag_6": hist[-7],
+                "aqi_lag_24": hist[-25],
+                "aqi_roll6": sum(hist[-7:-1]) / 6.0,  # mean of the previous 6 hours
+                "aqi_trend3": cur - hist[-4],         # slope over the last 3 hours
+            })
+            if clim.get("temperature_c") is not None:
+                feats["temperature_c"] = clim.get("temperature_c")
+                feats["humidity"] = clim.get("humidity")
+                feats["pressure_hpa"] = clim.get("pressure_hpa")
+                feats["wind_speed_ms"] = clim.get("wind_speed_ms")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Open-Meteo feature build failed for %s: %s", city, exc)
+
+    return feats
 
 
 def _vectorize(features):
